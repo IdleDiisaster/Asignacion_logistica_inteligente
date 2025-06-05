@@ -14,7 +14,7 @@ import pandas as pd
 import sqlite3
 
 def ejecutar_sql(query):
-    conn = sqlite3.connect('/content/drive/MyDrive/ruta/a/tu_base.sqlite3')  # Ajusta esta ruta
+    conn = sqlite3.connect("/content/drive/MyDrive/Inteligencia Logistica Base Prueba/asignacion_logistica_prueba.db")
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
