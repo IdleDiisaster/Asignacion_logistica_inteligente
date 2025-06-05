@@ -3,7 +3,7 @@ import pandas as pd
 import sqlite3
 
 def ejecutar_sql(query):
-    conn = sqlite3.connect('https://drive.google.com/file/d/1yFnVMFZ4U6JGGNBiLk3yo6Cwcpowa1GC/view?usp=sharing')
+    conn = sqlite3.connect('db_envios.db')
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
