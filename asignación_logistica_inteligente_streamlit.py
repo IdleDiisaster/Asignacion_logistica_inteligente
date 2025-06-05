@@ -3,7 +3,7 @@ import pandas as pd
 import sqlite3
 
 def ejecutar_sql(query):
-    conn = sqlite3.connect("/content/drive/MyDrive/Inteligencia Logistica Base Prueba/asignacion_logistica_prueba.db")
+    conn = sqlite3.connect('https://drive.google.com/file/d/1yFnVMFZ4U6JGGNBiLk3yo6Cwcpowa1GC/view?usp=sharing')
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
