@@ -1,4 +1,4 @@
-# Asigancion_logistica_inteligente
+# Asignacion_logistica_inteligente
 Aplicación desarrollada con **Streamlit** para seleccionar el proveedor logístico más adecuado según dimensiones, peso, código postal de destino y costos.
 
 ## Funcionalidades
