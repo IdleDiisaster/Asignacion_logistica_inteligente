@@ -42,7 +42,7 @@ def main():
         m3 = (largo * ancho * alto) / 1_000_000 if largo and ancho and alto else None
 
     if all([CP_DESTINO, largo, ancho, alto, peso_real, m3]):
-        peso_vol = max(peso_real, (largo * ancho * alto) / 5000)
+        peso_vol = (largo * ancho * alto) / 5000)
 
         st.markdown(f"""
         ### 📦 Datos del envío
