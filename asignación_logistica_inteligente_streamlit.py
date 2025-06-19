@@ -13,7 +13,7 @@ def main():
         df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
         lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
         # Sidebar con SKUs
-    with st.sidebar:
+with st.sidebar:
         st.header("📦 Productos disponibles")
         sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
         st.title("Asignador de Proveedores de Envío")
