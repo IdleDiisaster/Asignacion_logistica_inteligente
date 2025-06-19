@@ -14,22 +14,21 @@ def main():
     lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
     # Sidebar con SKUs
     with st.sidebar:
-    st.header("📦 Productos disponibles")
-    sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
-    st.title("Asignador de Proveedores de Envío")
-
-    opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
-
-    largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
-
+            st.header("📦 Productos disponibles")
+            sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
+            st.title("Asignador de Proveedores de Envío")
+            
+            opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
+            largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
+            
     if opcion == "Por ID de producto":
         ID_PRODUCTO = sku_seleccionado("ID del producto")
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
-
+            
         if ID_PRODUCTO and CP_DESTINO:
             query_producto = f"SELECT * FROM productos WHERE ID_PRODUCTO = '{ID_PRODUCTO}'"
             df_producto = ejecutar_sql(query_producto)
-
+            
             if not df_producto.empty:
                 producto = df_producto.iloc[0]
                 largo = producto['LARGO_CM']
