@@ -21,7 +21,7 @@ with st.sidebar:
         opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
         largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
             
-    if opcion == "Por ID de producto":
+if opcion == "Por ID de producto":
         ID_PRODUCTO = sku_seleccionado
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
             
