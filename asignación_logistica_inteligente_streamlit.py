@@ -7,12 +7,11 @@ def ejecutar_sql(query):
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
-
+    
 def main():
     # Cargar SKUs disponibles desde la base de datos
 df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
 lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
-
 # Sidebar con SKUs
 with st.sidebar:
     st.header("📦 Productos disponibles")
