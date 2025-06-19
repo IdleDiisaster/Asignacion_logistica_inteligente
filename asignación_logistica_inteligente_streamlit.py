@@ -9,35 +9,35 @@ def ejecutar_sql(query):
     return df
     
 def main():
-    # Cargar SKUs disponibles desde la base de datos
-    df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
-    lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
-    # Sidebar con SKUs
+        # Cargar SKUs disponibles desde la base de datos
+        df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
+        lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
+        # Sidebar con SKUs
     with st.sidebar:
-            st.header("📦 Productos disponibles")
-            sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
-            st.title("Asignador de Proveedores de Envío")
+        st.header("📦 Productos disponibles")
+        sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
+        st.title("Asignador de Proveedores de Envío")
             
-            opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
-            largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
+        opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
+        largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
             
     if opcion == "Por ID de producto":
-        ID_PRODUCTO = sku_seleccionado("ID del producto")
+        ID_PRODUCTO = sku_seleccionado
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
             
-        if ID_PRODUCTO and CP_DESTINO:
-            query_producto = f"SELECT * FROM productos WHERE ID_PRODUCTO = '{ID_PRODUCTO}'"
-            df_producto = ejecutar_sql(query_producto)
+    if ID_PRODUCTO and CP_DESTINO:
+        query_producto = f"SELECT * FROM productos WHERE ID_PRODUCTO = '{ID_PRODUCTO}'"
+        df_producto = ejecutar_sql(query_producto)
             
-            if not df_producto.empty:
-                producto = df_producto.iloc[0]
-                largo = producto['LARGO_CM']
-                ancho = producto['ANCHO_CM']
-                alto = producto['ALTO_CM']
-                peso_real = producto['PESO_KG']
-                m3 = producto['M3']
-            else:
-                st.warning("❌ Producto no encontrado.")
+    if not df_producto.empty:
+        producto = df_producto.iloc[0]
+        largo = producto['LARGO_CM']
+        ancho = producto['ANCHO_CM']
+        alto = producto['ALTO_CM']
+        peso_real = producto['PESO_KG']
+        m3 = producto['M3']
+    else:
+        st.warning("❌ Producto no encontrado.")
 
     elif opcion == "Manual":
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
