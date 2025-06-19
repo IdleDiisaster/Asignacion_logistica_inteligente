@@ -9,6 +9,14 @@ def ejecutar_sql(query):
     return df
 
 def main():
+    # Cargar SKUs disponibles desde la base de datos
+df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
+lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
+
+# Sidebar con SKUs
+with st.sidebar:
+    st.header("📦 Productos disponibles")
+    sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
     st.title("Asignador de Proveedores de Envío")
 
     opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
@@ -16,7 +24,7 @@ def main():
     largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
 
     if opcion == "Por ID de producto":
-        ID_PRODUCTO = st.text_input("ID del producto")
+        ID_PRODUCTO = sku_seleccionado("ID del producto")
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
 
         if ID_PRODUCTO and CP_DESTINO:
