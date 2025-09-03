@@ -39,11 +39,11 @@ def main():
     
             if not df_producto.empty:
                 producto = df_producto.iloc[0]
-                largo = producto['LARGO_CM']
-                ancho = producto['ANCHO_CM']
-                alto = producto['ALTO_CM']
-                peso_real = producto['PESO_KG']
-                m3 = producto['M3']
+                largo = float (producto['LARGO_CM'])
+                ancho = float (producto['ANCHO_CM'])
+                alto = float (producto['ALTO_CM'])
+                peso_real = float (producto['PESO_KG'])
+                m3 = float (producto['M3'])
             else:
                 st.warning("❌ Producto no encontrado.")
     
