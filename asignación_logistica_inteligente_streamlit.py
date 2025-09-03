@@ -39,11 +39,11 @@ def main():
     
             if not df_producto.empty:
                 producto = df_producto.iloc[0]
-                largo = float (producto['LARGO_CM'])
-                ancho = float (producto['ANCHO_CM'])
-                alto = float (producto['ALTO_CM'])
-                peso_real = float (producto['PESO_KG'])
-                m3 = float (producto['M3'])
+                largo = float(producto['LARGO_CM'])
+                ancho = float(producto['ANCHO_CM'])
+                alto = float(producto['ALTO_CM'])
+                peso_real = float(producto['PESO_KG'])
+                m3 = float(producto['M3'])
             else:
                 st.warning("❌ Producto no encontrado.")
     
@@ -57,7 +57,7 @@ def main():
 
     if all([CP_DESTINO, largo, ancho, alto, peso_real, m3]):
         peso_vol = (largo * ancho * alto) / 5000
-        peso_max = max(peso_real, peso_vol) # Calcula el maximo entre el peso real y el peso volumetrico
+        peso_max = max(peso_real, peso_vol)
 
         st.markdown(f"""
         ### 📦 Datos del envío
@@ -68,77 +68,101 @@ def main():
         - **Volumen (m³)**: {m3:.3f}
         """)
 
-        query_dimensiones = """
-        SELECT * FROM cobertura_transportistas
-        WHERE cp = ?
-        AND (validacion_tipo = 'DIMENSIONES' OR validacion_tipo IS NULL)
-        AND largo_max_cm >= ?
-        AND ancho_max_cm >= ?
-        AND alto_max_cm >= ?
-        AND peso_max_kg >= ?
+        # Consulta única para obtener cobertura y tarifas con un JOIN
+        query_cobertura_tarifas = """
+        SELECT
+            c.proveedor,
+            c.zona,
+            c.periodicidad,
+            t.tipo_tarifa,
+            t.rango_peso_min,
+            t.rango_peso_max,
+            t.m3_amparado,
+            t.precio_base,
+            t.umbral_kg_adicional,
+            t.costo_kg_adicional
+        FROM cobertura_transportistas AS c
+        JOIN tarifas_envio AS t
+            ON c.proveedor = t.proveedor
+            AND c.zona = t.zona
+        WHERE
+            c.cp = ?
+            AND (c.validacion_tipo = 'DIMENSIONES' OR c.validacion_tipo IS NULL)
+            AND c.largo_max_cm >= ?
+            AND c.ancho_max_cm >= ?
+            AND c.alto_max_cm >= ?
+            AND c.peso_max_kg >= ?
         """
-        query_volumen = """
-        SELECT * FROM cobertura_transportistas
-        WHERE cp = ?
-        AND validacion_tipo = 'VOLUMEN'
-        AND peso_max_kg >= ?
-        AND volumen_max_m3 >= ?
-        """
-        df_dimensiones = ejecutar_sql(query_dimensiones, params=(CP_DESTINO, largo, ancho, alto, peso_real))
-        df_volumen = ejecutar_sql(query_volumen, params=(CP_DESTINO, peso_real, m3))
-        df_cobertura = pd.concat([df_dimensiones, df_volumen], ignore_index=True)
+        
+        # Parámetros para la consulta de dimensiones
+        params_dimensiones = (CP_DESTINO, largo, ancho, alto, peso_real)
+        df_opciones_dimensiones = ejecutar_sql(query_cobertura_tarifas, params=params_dimensiones)
 
-        if df_cobertura.empty:
-            st.error("❌ Ningún proveedor cubre este código postal o acepta el producto.")
+        # Consulta para validación por volumen
+        query_cobertura_volumen = """
+        SELECT
+            c.proveedor,
+            c.zona,
+            c.periodicidad,
+            t.tipo_tarifa,
+            t.rango_peso_min,
+            t.rango_peso_max,
+            t.m3_amparado,
+            t.precio_base,
+            t.umbral_kg_adicional,
+            t.costo_kg_adicional
+        FROM cobertura_transportistas AS c
+        JOIN tarifas_envio AS t
+            ON c.proveedor = t.proveedor
+            AND c.zona = t.zona
+        WHERE
+            c.cp = ?
+            AND c.validacion_tipo = 'VOLUMEN'
+            AND c.peso_max_kg >= ?
+            AND c.volumen_max_m3 >= ?
+        """
+        
+        # Parámetros para la consulta de volumen
+        params_volumen = (CP_DESTINO, peso_real, m3)
+        df_opciones_volumen = ejecutar_sql(query_cobertura_volumen, params=params_volumen)
+        
+        # Unir los resultados
+        df_cobertura_tarifas = pd.concat([df_opciones_dimensiones, df_opciones_volumen], ignore_index=True)
+
+        if df_cobertura_tarifas.empty:
+            st.error("❌ No se encontraron opciones de envío viables con tarifas aplicables.")
             return
 
-        proveedores = df_cobertura['proveedor'].unique().tolist()
-        placeholders = ','.join(['?'] * len(proveedores))
-        query_tarifas = f"SELECT * FROM tarifas_envio WHERE proveedor IN ({placeholders})"
-        df_tarifas = ejecutar_sql(query_tarifas, params=proveedores)
-
+        # Calcular el costo de envío directamente desde el DataFrame
         opciones_envio = []
-
-        for _, row in df_cobertura.iterrows():
-            proveedor = row['proveedor']
-            zona = row['zona']
-            periodicidad = row['periodicidad']
-
-            tarifas_prov_zona = df_tarifas[(df_tarifas['proveedor'] == proveedor) & (df_tarifas['zona'] == zona)]
-
-            tarifas_volumetricas = tarifas_prov_zona[tarifas_prov_zona['tipo_tarifa'] == 'volumetrico']
-            for _, tarifa_vol in tarifas_volumetricas.iterrows():
+        for _, row in df_cobertura_tarifas.iterrows():
+            if row['tipo_tarifa'] == 'volumetrico':
                 peso_a_usar = max(peso_real, peso_vol)
-                if tarifa_vol['rango_peso_min'] <= peso_a_usar <= tarifa_vol['rango_peso_max']:
+                if row['rango_peso_min'] <= peso_a_usar <= row['rango_peso_max']:
                     adicional = 0
-                    if pd.notna(tarifa_vol['umbral_kg_adicional']) and peso_a_usar > tarifa_vol['umbral_kg_adicional']:
-                        adicional = (peso_a_usar - tarifa_vol['umbral_kg_adicional']) * tarifa_vol['costo_kg_adicional']
-                    costo_envio = tarifa_vol['precio_base'] + adicional
+                    if pd.notna(row['umbral_kg_adicional']) and peso_a_usar > row['umbral_kg_adicional']:
+                        adicional = (peso_a_usar - row['umbral_kg_adicional']) * row['costo_kg_adicional']
+                    costo_envio = row['precio_base'] + adicional
                     opciones_envio.append({
-                        'proveedor': proveedor,
-                        'zona': zona,
+                        'proveedor': row['proveedor'],
+                        'zona': row['zona'],
                         'tipo_tarifa': 'volumetrico',
                         'precio_envio': costo_envio,
-                        'periodicidad': periodicidad
+                        'periodicidad': row['periodicidad']
                     })
-
-            tarifas_m3 = tarifas_prov_zona[tarifas_prov_zona['tipo_tarifa'].str.lower() == 'm3'].sort_values(by=['rango_peso_min'])
-            tarifa_m3_valida = None
-            for _, fila_tarifa_m3 in tarifas_m3.iterrows():
-                excede_peso = peso_real > fila_tarifa_m3['rango_peso_max'] if pd.notna(fila_tarifa_m3['rango_peso_max']) else False
-                excede_m3 = m3 > fila_tarifa_m3['m3_amparado'] if pd.notna(fila_tarifa_m3['m3_amparado']) else False
+            
+            elif row['tipo_tarifa'].lower() == 'm3':
+                excede_peso = peso_real > row['rango_peso_max'] if pd.notna(row['rango_peso_max']) else False
+                excede_m3 = m3 > row['m3_amparado'] if pd.notna(row['m3_amparado']) else False
+                
                 if not (excede_peso or excede_m3):
-                    tarifa_m3_valida = fila_tarifa_m3
-                    break
-
-            if tarifa_m3_valida is not None:
-                opciones_envio.append({
-                    'proveedor': proveedor,
-                    'zona': zona,
-                    'tipo_tarifa': 'm3',
-                    'precio_envio': round(tarifa_m3_valida['precio_base'], 2),
-                    'periodicidad': periodicidad
-                })
+                    opciones_envio.append({
+                        'proveedor': row['proveedor'],
+                        'zona': row['zona'],
+                        'tipo_tarifa': 'm3',
+                        'precio_envio': round(row['precio_base'], 2),
+                        'periodicidad': row['periodicidad']
+                    })
 
         if not opciones_envio:
             st.error("❌ No se encontraron opciones de envío viables con tarifas aplicables.")
