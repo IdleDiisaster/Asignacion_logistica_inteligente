@@ -57,12 +57,14 @@ def main():
 
     if all([CP_DESTINO, largo, ancho, alto, peso_real, m3]):
         peso_vol = (largo * ancho * alto) / 5000
+        peso_max = max(peso_real, peso_vol) # Calcula el maximo entre el peso real y el peso volumetrico
 
         st.markdown(f"""
         ### 📦 Datos del envío
         - **Dimensiones**: {largo}x{ancho}x{alto} cm
         - **Peso real**: {peso_real:.2f} kg
         - **Peso volumétrico**: {peso_vol:.2f} kg
+        - **Peso Max**: {peso_max:.2f} kg
         - **Volumen (m³)**: {m3:.3f}
         """)
 
