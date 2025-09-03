@@ -2,50 +2,58 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 
-def ejecutar_sql(query):
+def ejecutar_sql(query, params=()):
     conn = sqlite3.connect('db_envios.db.db')
-    df = pd.read_sql_query(query, conn)
-    conn.close()
+    try:
+        df = pd.read_sql_query(query, conn, params=params)
+    except Exception as e:
+        st.error(f"Error al ejecutar la consulta: {e}")
+        df = pd.DataFrame()
+    finally:
+        conn.close()
     return df
     
 def main():
-        # Cargar SKUs disponibles desde la base de datos
-        df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
-        lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
-        # Sidebar con SKUs
-with st.sidebar:
+    # Cargar SKUs disponibles desde la base de datos
+    df_skus = ejecutar_sql("SELECT ID_PRODUCTO FROM productos")
+    lista_skus = df_skus['ID_PRODUCTO'].dropna().unique().tolist()
+
+    # Sidebar con SKUs
+    with st.sidebar:
         st.header("📦 Productos disponibles")
         sku_seleccionado = st.selectbox("Selecciona un SKU", options=[""] + lista_skus)
         st.title("Asignador de Proveedores de Envío")
-            
-        opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
-        largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
-            
-if opcion == "Por ID de producto":
+    
+    opcion = st.radio("¿Cómo quieres ingresar los datos del producto?", ["Por ID de producto", "Manual"])
+    largo = ancho = alto = peso_real = m3 = CP_DESTINO = None
+    
+    ID_PRODUCTO = None  # Inicializar ID_PRODUCTO aquí
+    
+    if opcion == "Por ID de producto":
         ID_PRODUCTO = sku_seleccionado
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
-            
-    if ID_PRODUCTO and CP_DESTINO:
-        query_producto = f"SELECT * FROM productos WHERE ID_PRODUCTO = '{ID_PRODUCTO}'"
-        df_producto = ejecutar_sql(query_producto)
-            
-    if not df_producto.empty:
-        producto = df_producto.iloc[0]
-        largo = producto['LARGO_CM']
-        ancho = producto['ANCHO_CM']
-        alto = producto['ALTO_CM']
-        peso_real = producto['PESO_KG']
-        m3 = producto['M3']
-    else:
-        st.warning("❌ Producto no encontrado.")
-
+    
+        if ID_PRODUCTO and CP_DESTINO:
+            query_producto = "SELECT * FROM productos WHERE ID_PRODUCTO = ?"
+            df_producto = ejecutar_sql(query_producto, params=(ID_PRODUCTO,))
+    
+            if not df_producto.empty:
+                producto = df_producto.iloc[0]
+                largo = producto['LARGO_CM']
+                ancho = producto['ANCHO_CM']
+                alto = producto['ALTO_CM']
+                peso_real = producto['PESO_KG']
+                m3 = producto['M3']
+            else:
+                st.warning("❌ Producto no encontrado.")
+    
     elif opcion == "Manual":
         CP_DESTINO = st.text_input("Código Postal de destino").zfill(5)
         largo = st.number_input("Largo (cm)", min_value=0.0, format="%.2f")
         ancho = st.number_input("Ancho (cm)", min_value=0.0, format="%.2f")
         alto = st.number_input("Alto (cm)", min_value=0.0, format="%.2f")
         peso_real = st.number_input("Peso real (kg)", min_value=0.0, format="%.2f")
-        m3 = (largo * ancho * alto) / 1_000_000 if largo and ancho and alto else None
+        m3 = (largo * ancho * alto) / 1_000_000 if all([largo, ancho, alto]) else None
 
     if all([CP_DESTINO, largo, ancho, alto, peso_real, m3]):
         peso_vol = (largo * ancho * alto) / 5000
@@ -58,24 +66,24 @@ if opcion == "Por ID de producto":
         - **Volumen (m³)**: {m3:.3f}
         """)
 
-        query_dimensiones = f"""
+        query_dimensiones = """
         SELECT * FROM cobertura_transportistas
-        WHERE cp = '{CP_DESTINO}'
+        WHERE cp = ?
         AND (validacion_tipo = 'DIMENSIONES' OR validacion_tipo IS NULL)
-        AND largo_max_cm >= {largo}
-        AND ancho_max_cm >= {ancho}
-        AND alto_max_cm >= {alto}
-        AND peso_max_kg >= {peso_real}
+        AND largo_max_cm >= ?
+        AND ancho_max_cm >= ?
+        AND alto_max_cm >= ?
+        AND peso_max_kg >= ?
         """
-        query_volumen = f"""
+        query_volumen = """
         SELECT * FROM cobertura_transportistas
-        WHERE cp = '{CP_DESTINO}'
+        WHERE cp = ?
         AND validacion_tipo = 'VOLUMEN'
-        AND peso_max_kg >= {peso_real}
-        AND volumen_max_m3 >= {m3}
+        AND peso_max_kg >= ?
+        AND volumen_max_m3 >= ?
         """
-        df_dimensiones = ejecutar_sql(query_dimensiones)
-        df_volumen = ejecutar_sql(query_volumen)
+        df_dimensiones = ejecutar_sql(query_dimensiones, params=(CP_DESTINO, largo, ancho, alto, peso_real))
+        df_volumen = ejecutar_sql(query_volumen, params=(CP_DESTINO, peso_real, m3))
         df_cobertura = pd.concat([df_dimensiones, df_volumen], ignore_index=True)
 
         if df_cobertura.empty:
@@ -83,11 +91,9 @@ if opcion == "Por ID de producto":
             return
 
         proveedores = df_cobertura['proveedor'].unique().tolist()
-        query_tarifas = f"""
-        SELECT * FROM tarifas_envio
-        WHERE proveedor IN ({','.join(f"'{p}'" for p in proveedores)})
-        """
-        df_tarifas = ejecutar_sql(query_tarifas)
+        placeholders = ','.join(['?'] * len(proveedores))
+        query_tarifas = f"SELECT * FROM tarifas_envio WHERE proveedor IN ({placeholders})"
+        df_tarifas = ejecutar_sql(query_tarifas, params=proveedores)
 
         opciones_envio = []
 
